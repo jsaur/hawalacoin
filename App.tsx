@@ -6,9 +6,12 @@ import { BigNumber } from 'bignumber.js';
 import { StableToken } from '@celo/contractkit';
 import { useContractKit, Alfajores } from '@celo-tools/use-contractkit';
 import { ContractKitProvider, NetworkNames } from '@celo-tools/use-contractkit';
-import { Toaster } from 'react-hot-toast';
 import Web3 from 'web3';
 // import '@celo-tools/use-contractkit/lib/styles.css';
+
+// Shim to fix issue with Buffer for iOS
+global.Buffer = global.Buffer || require('buffer').Buffer
+
 
 const defaultSummary = {
   name: '',
@@ -112,15 +115,6 @@ function WrappedApp() {
       chainId: 44787,
     }}
   >
-    <Toaster
-      position="top-right"
-      toastOptions={{
-        className: 'w-72 md:w-96',
-        style: {
-          padding: '0px',
-        },
-      }}
-    />
     <App />
     </ContractKitProvider>
   );
