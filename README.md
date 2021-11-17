@@ -2,6 +2,18 @@
 
 A DApp for getting money into hard places
 
+## Setup
+
+To install dependencies run
+```
+yarn
+```
+
+To run dev server
+```
+yarn dev
+```
+
 ## Truffle
 
 We use Truffle to manage our contracts locally.
