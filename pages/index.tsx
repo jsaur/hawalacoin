@@ -5,7 +5,7 @@ import { useContractKit } from '@celo-tools/use-contractkit';
 import Web3 from 'web3';
 import hawalaJson from '../truffle/build/contracts/HawalaCoin.json';
 import Head from 'next/head';
-import { PrimaryButton } from '../components/buttons';
+import { ContractButton, PrimaryButton } from '../components/buttons';
 import { toast } from '../components';
 
 const defaultSummary = {
@@ -37,6 +37,7 @@ export default function Home(): React.ReactElement {
   const [transacting, setTransacting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [role, setRole] = useState(0);
+  const [inputAddress, setInputAddress] = useState('');
   
 
   // TODO Move these to configs
@@ -78,6 +79,7 @@ export default function Home(): React.ReactElement {
   async function fetchRole() {
     if (!address) {
       setRole(0);
+      return;
     }
     const role = await hawalaContract.methods.users(address).call();
     console.log(role);
@@ -87,7 +89,7 @@ export default function Home(): React.ReactElement {
   /**
    * Wrapper function for contract calls to handle the transacting flag and errors
    */
-  async function wrapContractCall(fn: (...args: any) => void, ...args: any) {
+  async function wrapContractCall(fn: (...args: any) => Promise<void>, ...args: any) {
     try {
       setTransacting(true);
       await fn(...args);
@@ -97,6 +99,21 @@ export default function Home(): React.ReactElement {
     } finally {
       setTransacting(false);
     }
+  }
+
+  /** 
+   * 
+   */
+  async function addRole(inputAddress: string, role: number): Promise<void> {
+    console.log(inputAddress);
+    console.log(role);
+    if (!inputAddress) {
+      return;
+    }
+    const txObject = await hawalaContract.methods.addUser(inputAddress, role); 
+    let tx = await kit.sendTransactionObject(txObject, { from: kit.defaultAccount, gasPrice: defaultGasPrice });
+    let receipt = await tx.waitReceipt();
+    console.log(receipt);
   }
 
   /** 
@@ -134,6 +151,14 @@ export default function Home(): React.ReactElement {
     return (
       <div>
         <div>Welcome Donor</div>
+        <div>Add the address of the Client</div>
+        <div>
+          <ContractButton disabled={transacting} onClick={() => wrapContractCall(() => addRole(inputAddress, 2))} children="Add" />
+          <input className="bg-blue border-2 w-96" type="text" placeholder="Client Address" value={inputAddress} onChange={(event: any) => {
+            setInputAddress(event.target.value);
+          }}></input>
+        </div>
+
       </div>
     );
   }
