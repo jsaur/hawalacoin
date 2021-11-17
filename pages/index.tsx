@@ -34,9 +34,9 @@ export default function Home(): React.ReactElement {
     walletType,
   } = useContractKit();
   const [summary, setSummary] = useState(defaultSummary);
-  let [loans, setLoans] = useState([]);
   const [transacting, setTransacting] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [role, setRole] = useState(0);
   
 
   // TODO Move these to configs
@@ -75,6 +75,14 @@ export default function Home(): React.ReactElement {
     });
   }, [address, kit]);
 
+  async function fetchRole() {
+    if (!address) {
+      setRole(0);
+    }
+    const role = await hawalaContract.methods.users(address).call();
+    console.log(role);
+    setRole(parseInt(role, 10));
+  }
 
   /**
    * Wrapper function for contract calls to handle the transacting flag and errors
@@ -105,31 +113,70 @@ export default function Home(): React.ReactElement {
     console.log('burn');
   }
 
-
-
-  /**
-   * Helper function to get role
-   */
-  function currentState(roleId: string) {
-    switch(roleId) {
-      case "0":
-        return 'Not Assigned';
-      case "1":
-        return 'Donor';
-      case "2":
-        return 'Client';
-      case "3":
-        return 'CSO';
-      case "4":
-        return 'Agent';
+  function RoleView() {
+    switch(role) {
+      case 0:
+        return (<UnassignedView />);;
+      case 1:
+        return (<DonorView />);
+      case 2:
+        return (<ClientView />);;
+      case 3:
+        return (<CsoView />);;
+      case 4:
+        return (<AgentView />);;
       default:
-        return 'Not Assigned'
+        return (<DonorView />);;
     }
+  }
+
+  function DonorView() {
+    return (
+      <div>
+        <div>Welcome Donor</div>
+      </div>
+    );
+  }
+
+  function ClientView() {
+    return (
+      <div>
+        <div>Welcome Client</div>
+      </div>
+    );
+  }
+
+  function CsoView() {
+    return (
+      <div>
+        <div>Welcome CSO</div>
+      </div>
+    );
+  }
+
+  function AgentView() {
+    return (
+      <div>
+        <div>Agent Donor</div>
+      </div>
+    );
+  }
+
+  function UnassignedView() {
+    return (
+      <div>
+        <div>Your address doesn't have a role assigned</div>
+      </div>
+    );
   }
 
   useEffect(() => {
     void fetchSummary();
   }, [fetchSummary]);
+
+  useEffect(() => {
+    void fetchRole();
+  }, [fetchRole]);
 
   return (
     <div>
@@ -149,12 +196,17 @@ export default function Home(): React.ReactElement {
             }>Connect</PrimaryButton>)
           }
           {address && (
-            <div className="text-gray-600">
-              <div>Wallet Information</div>
-              <div>Network: {network.name}</div>
-              <div>Address: {truncateAddress(address)}</div>
-              <div>Celo: {Web3.utils.fromWei(summary.celo.toFixed())}</div>
-              <div>cUSD: {Web3.utils.fromWei(summary.cusd.toFixed())}</div>
+            <div>
+              <div className="text-gray-600 border-2">
+                <div>Wallet Information</div>
+                <div>Network: {network.name}</div>
+                <div>Address: {truncateAddress(address)}</div>
+                <div>Celo: {Web3.utils.fromWei(summary.celo.toFixed())}</div>
+                <div>cUSD: {Web3.utils.fromWei(summary.cusd.toFixed())}</div>
+              </div>
+              <div>
+                <RoleView />
+              </div>
             </div>
           )}
       </main>
