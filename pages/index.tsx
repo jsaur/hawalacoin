@@ -13,7 +13,7 @@ const defaultSummary = {
   wallet: '',
   celo: new BigNumber(0),
 };
-const defaultGasPrice = 100000000000;
+const defaultGasPrice = 500000000000;
 const ERC20_DECIMALS = 18;
 
 function truncateAddress(address: string) {
@@ -36,9 +36,13 @@ export default function Home(): React.ReactElement {
   const [role, setRole] = useState(0);
   const [balances, setBalances] = useState([]);
 
+  // TODO right now making token and mission global, eventually they should be selectable
+  const [tokenId, setTokenId] = useState(0);
+  const [missionId, setMissionId] = useState(0);
+
   // TODO Move these to configs
   // Alfajores
-  const hawalaAddress = '0x48f6848cA5737A94902772f48bA894E1b8F9A848';
+  const hawalaAddress = '0x1c1835707FB45Fe1996b8E1c74873764eb99b743';
   const hawalaAbi: any = hawalaJson.abi; // hack to fix abi types
   const hawalaContract = new kit.web3.eth.Contract(hawalaAbi, hawalaAddress);
 
@@ -78,8 +82,10 @@ export default function Home(): React.ReactElement {
       setBalances([]);
       return;
     }
-    // TODO make call to get most recent token - for now hardcoding
-    setTokenId(0);
+    const tokenId = await hawalaContract.methods.currentTokenId().call();
+    setTokenId(tokenId);
+    const missionId = await hawalaContract.methods.currentMissionId().call();
+    setMissionId(missionId);
     const balances = await hawalaContract.methods.balanceOfBatch([address], [0]).call();
     setBalances(balances);
   }
@@ -121,9 +127,6 @@ export default function Home(): React.ReactElement {
    * 4 - Agent
    */
   async function addRole(inputAddress: string, role: number): Promise<void> {
-    if (!inputAddress) {
-      return;
-    }
     const txObject = await hawalaContract.methods.addUser(inputAddress, role); 
     let tx = await kit.sendTransactionObject(txObject, { from: kit.defaultAccount, gasPrice: defaultGasPrice });
     let receipt = await tx.waitReceipt();
@@ -134,9 +137,6 @@ export default function Home(): React.ReactElement {
    * Mints new tokens which are tied to a specific client which will be able to redeem/burn them
    */
   async function mint(clientAddress: string, amount: number): Promise<void> {
-    if (!clientAddress || amount <= 0) {
-      return;
-    }
     const txObject = await hawalaContract.methods.mint(kit.defaultAccount, clientAddress, amount);
     let tx = await kit.sendTransactionObject(txObject, { from: kit.defaultAccount, gasPrice: defaultGasPrice });
     let receipt = await tx.waitReceipt();
@@ -147,22 +147,50 @@ export default function Home(): React.ReactElement {
   /** 
    * Calls the safeTransfer function on the ERC-1155 contract to transfer an amount of tokens to another address
    */
-  async function transfer(targetAddress: string, token: number, amount: number): Promise<void> {
-    console.log(`${kit.defaultAccount} ${targetAddress}  ${token}  ${amount}`);
-    const txObject = await hawalaContract.methods.safeTransferFrom(kit.defaultAccount, targetAddress, token, amount, []);
+  async function transfer(targetAddress: string, tokenId: number, amount: number): Promise<void> {
+    const txObject = await hawalaContract.methods.safeTransferFrom(kit.defaultAccount, targetAddress, tokenId, amount, []);
     let tx = await kit.sendTransactionObject(txObject, { from: kit.defaultAccount, gasPrice: defaultGasPrice });
     let receipt = await tx.waitReceipt();
     console.log(receipt);
     fetchSummary();
   }
 
+  /** 
+   * 
+   */
+  async function setApprovalForAll(): Promise<void> {
+    const txObject = await hawalaContract.methods.setApprovalForAll(hawalaAddress, true);
+    let tx = await kit.sendTransactionObject(txObject, { from: kit.defaultAccount, gasPrice: defaultGasPrice });
+    let receipt = await tx.waitReceipt();
+    console.log(receipt);
+    fetchSummary();
+  }
+
+  /** 
+   * 
+   */
+  async function createMission(targetAddress: string, tokenId: number, amount: number): Promise<void> {
+    const txObject = await hawalaContract.methods.createMission(kit.defaultAccount, targetAddress, tokenId, amount);
+    let tx = await kit.sendTransactionObject(txObject, { from: kit.defaultAccount, gasPrice: defaultGasPrice });
+    let receipt = await tx.waitReceipt();
+    console.log(receipt);
+    fetchSummary();
+  }
+
+  /** 
+   * 
+   */
+  async function completeMission(targetAddress: string, missionId: number): Promise<void> {
+    const txObject = await hawalaContract.methods.completeMission(kit.defaultAccount, missionId);
+    let tx = await kit.sendTransactionObject(txObject, { from: kit.defaultAccount, gasPrice: defaultGasPrice });
+    let receipt = await tx.waitReceipt();
+    console.log(receipt);
+    fetchSummary();
+  }
   /**
    * Burns a number of tokens, done by the client in response to the Agent collecting money
    */
   async function burn(tokenId: number, amount: number) {
-    if (tokenId <= 0 || amount <= 0) {
-      return;
-    }
     const txObject = await hawalaContract.methods.burn(kit.defaultAccount, tokenId, amount);
     let tx = await kit.sendTransactionObject(txObject, { from: kit.defaultAccount, gasPrice: defaultGasPrice });
     let receipt = await tx.waitReceipt();
@@ -188,10 +216,9 @@ export default function Home(): React.ReactElement {
   }
 
   const [clientAddress, setClientAddress] = useState('');
-  const [mintAmount, setMintAmount] = useState('');
+  const [mintAmount, setMintAmount] = useState(100);
   const [csoAddress, setCsoAddress] = useState('');
-  const [transferAmount, setTransferAmount] = useState('');
-  const [tokenId, setTokenId] = useState(0);
+  const [transferAmount, setTransferAmount] = useState(100);
 
   function DonorView() {
     return (
@@ -204,7 +231,6 @@ export default function Home(): React.ReactElement {
           }}></input>
         </div>
         <ContractButton className="float-right" disabled={transacting} onClick={() => wrapContractCall(() => addRole(clientAddress, 2))} children="Add Client" />
-        <div> </div>
         <div className="msg-bubble">Transfer USD to the Client</div>
         <div className="msg-bubble">Once transferred you can mint representative tokens</div>
         <div>
@@ -213,7 +239,6 @@ export default function Home(): React.ReactElement {
           }}></input>
         </div>
         <ContractButton className="float-right" disabled={transacting} onClick={() => wrapContractCall(() => mint(clientAddress, mintAmount))} children="Mint Tokens" />
-        <div> </div>
         <div className="msg-bubble">Add the address of the CSO who will receive the tokens</div>
         <div>
           <input className="msg-input w-96" type="text" placeholder="CSO Address" value={csoAddress} onChange={(event: any) => {
@@ -221,7 +246,6 @@ export default function Home(): React.ReactElement {
           }}></input>
         </div>
         <ContractButton className="float-right" disabled={transacting} onClick={() => wrapContractCall(() => addRole(csoAddress, 3))} children="Add CSO" />
-        <div> </div>
         <div className="msg-bubble">Transfer tokens to CSO</div>
         <div>
           <input className="msg-input" type="text" placeholder="Amount in cents" value={transferAmount} onChange={(event: any) => {
@@ -233,34 +257,57 @@ export default function Home(): React.ReactElement {
     );
   }
 
+  const [agentAddress, setAgentAddress] = useState('');
+  const [missionAmount, setMissionAmountAddress] = useState(100);
+
   function CsoView() {
     return (
-      <div>
-        <div>Welcome CSO</div>
+      <div className="flex flex-col">
+        <div className="msg-bubble">Welcome CSO</div>
+        <ContractButton className="float-right w-52" disabled={transacting} onClick={() => wrapContractCall(() => setApprovalForAll())} children="Approve Contract" />
+        <div className="msg-bubble">Create a mission for an Agent</div>
+        <div className="msg-bubble">Choose an Agent and amount to assign</div>
+        <div>
+          <input className="msg-input w-96 float-right" type="text" placeholder="Agent Address" value={agentAddress} onChange={(event: any) => {
+            setAgentAddress(event.target.value);
+          }}></input>
+        </div>
+        <div>
+          <input className="msg-input float-right" type="text" placeholder="Mission Amount" value={missionAmount} onChange={(event: any) => {
+            setMissionAmountAddress(event.target.value);
+          }}></input>
+        </div>
+        <ContractButton className="float-right" disabled={transacting} onClick={() => wrapContractCall(() => createMission(agentAddress, tokenId, missionAmount))} children="Create Mission" />
       </div>
     );
   }
 
   function AgentView() {
     return (
-      <div>
-        <div>Agent Donor</div>
+      <div className="flex flex-col">
+        <div className="msg-bubble">Welcome Agent</div>
       </div>
     );
   }
 
   function ClientView() {
     return (
-      <div>
-        <div>Welcome Client</div>
+      <div className="flex flex-col">
+        <div className="msg-bubble">Welcome Client</div>
+        <div>
+          <input className="msg-input w-96" type="text" placeholder="Agent Address" value={agentAddress} onChange={(event: any) => {
+            setAgentAddress(event.target.value);
+          }}></input>
+        </div>
+        <ContractButton className="float-right" disabled={transacting} onClick={() => wrapContractCall(() => addRole(agentAddress, 4))} children="Add Agent" />
       </div>
     );
   }
 
   function UnassignedView() {
     return (
-      <div>
-        <div>Your address doesn't have a role assigned</div>
+      <div className="flex flex-col">
+        <div className="msg-bubble">Your address doesn't have a role assigned</div>
       </div>
     );
   }
@@ -279,7 +326,7 @@ export default function Home(): React.ReactElement {
         <title>HawalaCoin</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <div className="fixed w-full bg-indigo-900 h-12 pt-2 text-white text-center font-bold text-lg tracking-wide">
+      <div className="fixed w-full bg-indigo-900 h-12 pt-2 text-white text-center font-bold text-lg tracking-wide" onClick={() => { fetchSummary(); fetchRole(); }}>
         Hawala Coin
       </div>
       <main className="max-w-screen-sm mx-auto py-10 px-4">

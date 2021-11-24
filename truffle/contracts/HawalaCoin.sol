@@ -111,4 +111,18 @@ contract HawalaCoin is ERC1155, ERC1155Receiver, ERC1155Holder, Ownable  {
         missions[missionId].completed = true;
         this.safeTransferFrom(address(this), agentAddr, tokenId, amount, "");
     }
+
+    /**
+     * Convinience function to get the current token id so we can loop through all previous tokens
+     */
+    function currentTokenId() public view returns (uint256) {
+        return _tokenCounter.current();
+    }
+
+    /**
+     * Convinience function to get the current missions id so we can loop through all previous missions
+     */
+    function currentMissionId() public view returns (uint256) {
+        return _missionCounter.current();
+    }
 }
