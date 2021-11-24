@@ -13,7 +13,6 @@ const defaultSummary = {
   address: '',
   wallet: '',
   celo: new BigNumber(0),
-  cusd: new BigNumber(0)
 };
 const defaultGasPrice = 100000000000;
 const ERC20_DECIMALS = 18;
@@ -35,15 +34,12 @@ export default function Home(): React.ReactElement {
   } = useContractKit();
   const [summary, setSummary] = useState(defaultSummary);
   const [transacting, setTransacting] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [role, setRole] = useState(0);
-  const [inputAddress, setInputAddress] = useState('');
-  
+  const [balances, setBalances] = useState([]);
 
   // TODO Move these to configs
   // Alfajores
   const hawalaAddress = '0x48f6848cA5737A94902772f48bA894E1b8F9A848';
-  const cusdAddress = '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1';
   const hawalaAbi: any = hawalaJson.abi; // hack to fix abi types
   const hawalaContract = new kit.web3.eth.Contract(hawalaAbi, hawalaAddress);
 
@@ -56,26 +52,42 @@ export default function Home(): React.ReactElement {
       return;
     }
 
-    const [accounts, goldToken, cUSD] = await Promise.all([
+    const [accounts, goldToken] = await Promise.all([
       kit.contracts.getAccounts(),
       kit.contracts.getGoldToken(),
-      kit.contracts.getStableToken(StableToken.cUSD),
     ]);
-    const [summary, celo, cusd] = await Promise.all([
+    const [summary, celo] = await Promise.all([
       accounts.getAccountSummary(address).catch((e) => {
         console.error(e);
         return defaultSummary;
       }),
-      goldToken.balanceOf(address),
-      cUSD.balanceOf(address)
+      goldToken.balanceOf(address)
     ]);
+    await fetchTokenBalances();
     setSummary({
       ...summary,
-      celo,
-      cusd
+      celo
     });
   }, [address, kit]);
 
+  /**
+   * Gets the balance of the latest token
+   * TODO eventually this should support all tokens with a way to select which one
+   */
+  async function fetchTokenBalances(): Promise<void> {
+    if (!address) {
+      setBalances([]);
+      return;
+    }
+    // TODO make call to get most recent token - for now hardcoding
+    setTokenId(0);
+    const balances = await hawalaContract.methods.balanceOfBatch([address], [0]).call();
+    setBalances(balances);
+  }
+
+  /**
+   * Calls the HawalaCoin contract to get the role assigned to the current address
+   */
   async function fetchRole() {
     if (!address) {
       setRole(0);
@@ -102,11 +114,14 @@ export default function Home(): React.ReactElement {
   }
 
   /** 
-   * 
+   * Adds a new role:
+   * 0 - None
+   * 1 - Donor
+   * 2 - Client
+   * 3 - CSO
+   * 4 - Agent
    */
   async function addRole(inputAddress: string, role: number): Promise<void> {
-    console.log(inputAddress);
-    console.log(role);
     if (!inputAddress) {
       return;
     }
@@ -117,17 +132,43 @@ export default function Home(): React.ReactElement {
   }
 
   /** 
-   * 
+   * Mints new tokens which are tied to a specific client which will be able to redeem/burn them
    */
-  async function mint() {
-    console.log('mint');
+  async function mint(clientAddress: string, amount: number): Promise<void> {
+    if (!clientAddress || amount <= 0) {
+      return;
+    }
+    const txObject = await hawalaContract.methods.mint(kit.defaultAccount, clientAddress, amount);
+    let tx = await kit.sendTransactionObject(txObject, { from: kit.defaultAccount, gasPrice: defaultGasPrice });
+    let receipt = await tx.waitReceipt();
+    console.log(receipt);
+    fetchSummary();
+  }
+
+  /** 
+   * Calls the safeTransfer function on the ERC-1155 contract to transfer an amount of tokens to another address
+   */
+  async function transfer(targetAddress: string, token: number, amount: number): Promise<void> {
+    console.log(`${kit.defaultAccount} ${targetAddress}  ${token}  ${amount}`);
+    const txObject = await hawalaContract.methods.safeTransferFrom(kit.defaultAccount, targetAddress, token, amount, []);
+    let tx = await kit.sendTransactionObject(txObject, { from: kit.defaultAccount, gasPrice: defaultGasPrice });
+    let receipt = await tx.waitReceipt();
+    console.log(receipt);
+    fetchSummary();
   }
 
   /**
-   * 
+   * Burns a number of tokens, done by the client in response to the Agent collecting money
    */
-  async function burn() {
-    console.log('burn');
+  async function burn(tokenId: number, amount: number) {
+    if (tokenId <= 0 || amount <= 0) {
+      return;
+    }
+    const txObject = await hawalaContract.methods.burn(kit.defaultAccount, tokenId, amount);
+    let tx = await kit.sendTransactionObject(txObject, { from: kit.defaultAccount, gasPrice: defaultGasPrice });
+    let receipt = await tx.waitReceipt();
+    console.log(receipt);
+    fetchSummary();
   }
 
   function RoleView() {
@@ -147,18 +188,47 @@ export default function Home(): React.ReactElement {
     }
   }
 
+  const [clientAddress, setClientAddress] = useState('');
+  const [mintAmount, setMintAmount] = useState(100.00);
+  const [csoAddress, setCsoAddress] = useState('');
+  const [transferAmount, setTransferAmount] = useState(100.00);
+  const [tokenId, setTokenId] = useState(0);
+
   function DonorView() {
     return (
       <div>
-        <div>Welcome Donor</div>
-        <div>Add the address of the Client</div>
+        <div className="font-bold py-2">Welcome Donor</div>
+        <div>Add the address of the Client you will send USD to</div>
         <div>
-          <ContractButton disabled={transacting} onClick={() => wrapContractCall(() => addRole(inputAddress, 2))} children="Add" />
-          <input className="bg-blue border-2 w-96" type="text" placeholder="Client Address" value={inputAddress} onChange={(event: any) => {
-            setInputAddress(event.target.value);
+          <input className="bg-blue border-2 w-96" type="text" placeholder="Client Address" value={clientAddress} onChange={(event: any) => {
+            setClientAddress(event.target.value);
           }}></input>
+          <ContractButton disabled={transacting} onClick={() => wrapContractCall(() => addRole(clientAddress, 2))} children="Add Client" />
         </div>
-
+        <div> </div>
+        <div>Transfer USD to the Client, then mint representative tokens</div>
+        <div>
+          <input className="bg-blue border-2 w-96" type="text" placeholder="100.00" value={mintAmount} onChange={(event: any) => {
+            setMintAmount(event.target.value);
+          }}></input>
+          <ContractButton disabled={transacting} onClick={() => wrapContractCall(() => mint(clientAddress, mintAmount))} children="Mint Tokens" />
+        </div>
+        <div> </div>
+        <div>Add the address of the CSO who will receive the tokens</div>
+        <div>
+          <input className="bg-blue border-2 w-96" type="text" placeholder="CSO Address" value={csoAddress} onChange={(event: any) => {
+            setCsoAddress(event.target.value);
+          }}></input>
+          <ContractButton disabled={transacting} onClick={() => wrapContractCall(() => addRole(csoAddress, 3))} children="Add CSO" />
+        </div>
+        <div> </div>
+        <div>Transfer tokens to CSO</div>
+        <div>
+          <input className="bg-blue border-2 w-96" type="text" placeholder="100.00" value={transferAmount} onChange={(event: any) => {
+            setTransferAmount(event.target.value);
+          }}></input>
+          <ContractButton disabled={transacting} onClick={() => wrapContractCall(() => transfer(csoAddress, tokenId, transferAmount))} children="Transfer to CSO" />
+        </div>
       </div>
     );
   }
@@ -227,7 +297,9 @@ export default function Home(): React.ReactElement {
                 <div>Network: {network.name}</div>
                 <div>Address: {truncateAddress(address)}</div>
                 <div>Celo: {Web3.utils.fromWei(summary.celo.toFixed())}</div>
-                <div>cUSD: {Web3.utils.fromWei(summary.cusd.toFixed())}</div>
+                {balances.map((balance, tokenId) =>
+                  <div key={tokenId}>Token{tokenId}: {balance}</div>
+                )}
               </div>
               <div>
                 <RoleView />

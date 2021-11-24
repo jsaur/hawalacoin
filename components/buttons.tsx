@@ -26,7 +26,7 @@ export function ContractButton(
   return (
     <button
       {...props}
-      className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-indigo-600 w-20
+      className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-indigo-600 w-40
         ${props.disabled ? 'cursor-not-allowed': 'hover:bg-indigo-700'} mt-2 ml-auto ${props.className || ''}`}
     >{props.disabled ? <ClipLoader size={15} /> : props.children}</button>
   );
