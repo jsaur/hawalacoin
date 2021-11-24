@@ -17,3 +17,11 @@ a {
 * {
   box-sizing: border-box;
 }
+
+.msg-bubble {
+  @apply px-4 py-2 border rounded-2xl text-base font-normal w-max text-white bg-gray-600
+}
+
+.msg-input {
+  @apply rounded px-1 py-1 focus:outline-none focus:ring-2 focus:border-transparent focus:ring-indigo-500 border-2 text-sm float-right
+}

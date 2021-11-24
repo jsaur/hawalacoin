@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { BigNumber } from 'bignumber.js';
-import { StableToken } from '@celo/contractkit';
 import { useContractKit } from '@celo-tools/use-contractkit';
 import Web3 from 'web3';
 import hawalaJson from '../truffle/build/contracts/HawalaCoin.json';
@@ -174,69 +173,62 @@ export default function Home(): React.ReactElement {
   function RoleView() {
     switch(role) {
       case 0:
-        return (<UnassignedView />);;
+        return (<div>{UnassignedView()}</div>);
       case 1:
-        return (<DonorView />);
+        return (<div>{DonorView()}</div>);
       case 2:
-        return (<ClientView />);;
+        return (<div>{ClientView()}</div>);
       case 3:
-        return (<CsoView />);;
+        return (<div>{CsoView()}</div>);
       case 4:
-        return (<AgentView />);;
+        return (<div>{AgentView()}</div>);
       default:
-        return (<DonorView />);;
+        return (<div>{UnassignedView()}</div>);
     }
   }
 
   const [clientAddress, setClientAddress] = useState('');
-  const [mintAmount, setMintAmount] = useState(100.00);
+  const [mintAmount, setMintAmount] = useState('');
   const [csoAddress, setCsoAddress] = useState('');
-  const [transferAmount, setTransferAmount] = useState(100.00);
+  const [transferAmount, setTransferAmount] = useState('');
   const [tokenId, setTokenId] = useState(0);
 
   function DonorView() {
     return (
-      <div>
-        <div className="font-bold py-2">Welcome Donor</div>
-        <div>Add the address of the Client you will send USD to</div>
+      <div className="flex flex-col">
+        <div className="msg-bubble">Welcome Donor</div>
+        <div className="msg-bubble">Add the address of the Client you will send USD to</div>
         <div>
-          <input className="bg-blue border-2 w-96" type="text" placeholder="Client Address" value={clientAddress} onChange={(event: any) => {
+          <input className="msg-input w-96" type="text" placeholder="Client Address" value={clientAddress} onChange={(event: any) => {
             setClientAddress(event.target.value);
           }}></input>
-          <ContractButton disabled={transacting} onClick={() => wrapContractCall(() => addRole(clientAddress, 2))} children="Add Client" />
         </div>
+        <ContractButton className="float-right" disabled={transacting} onClick={() => wrapContractCall(() => addRole(clientAddress, 2))} children="Add Client" />
         <div> </div>
-        <div>Transfer USD to the Client, then mint representative tokens</div>
+        <div className="msg-bubble">Transfer USD to the Client</div>
+        <div className="msg-bubble">Once transferred you can mint representative tokens</div>
         <div>
-          <input className="bg-blue border-2 w-96" type="text" placeholder="100.00" value={mintAmount} onChange={(event: any) => {
+          <input className="msg-input" type="text" placeholder="Amount in cents" value={mintAmount} onChange={(event: any) => {
             setMintAmount(event.target.value);
           }}></input>
-          <ContractButton disabled={transacting} onClick={() => wrapContractCall(() => mint(clientAddress, mintAmount))} children="Mint Tokens" />
         </div>
+        <ContractButton className="float-right" disabled={transacting} onClick={() => wrapContractCall(() => mint(clientAddress, mintAmount))} children="Mint Tokens" />
         <div> </div>
-        <div>Add the address of the CSO who will receive the tokens</div>
+        <div className="msg-bubble">Add the address of the CSO who will receive the tokens</div>
         <div>
-          <input className="bg-blue border-2 w-96" type="text" placeholder="CSO Address" value={csoAddress} onChange={(event: any) => {
+          <input className="msg-input w-96" type="text" placeholder="CSO Address" value={csoAddress} onChange={(event: any) => {
             setCsoAddress(event.target.value);
           }}></input>
-          <ContractButton disabled={transacting} onClick={() => wrapContractCall(() => addRole(csoAddress, 3))} children="Add CSO" />
         </div>
+        <ContractButton className="float-right" disabled={transacting} onClick={() => wrapContractCall(() => addRole(csoAddress, 3))} children="Add CSO" />
         <div> </div>
-        <div>Transfer tokens to CSO</div>
+        <div className="msg-bubble">Transfer tokens to CSO</div>
         <div>
-          <input className="bg-blue border-2 w-96" type="text" placeholder="100.00" value={transferAmount} onChange={(event: any) => {
+          <input className="msg-input" type="text" placeholder="Amount in cents" value={transferAmount} onChange={(event: any) => {
             setTransferAmount(event.target.value);
           }}></input>
-          <ContractButton disabled={transacting} onClick={() => wrapContractCall(() => transfer(csoAddress, tokenId, transferAmount))} children="Transfer to CSO" />
         </div>
-      </div>
-    );
-  }
-
-  function ClientView() {
-    return (
-      <div>
-        <div>Welcome Client</div>
+        <ContractButton className="float-right" disabled={transacting} onClick={() => wrapContractCall(() => transfer(csoAddress, tokenId, transferAmount))} children="Transfer to CSO" />
       </div>
     );
   }
@@ -253,6 +245,14 @@ export default function Home(): React.ReactElement {
     return (
       <div>
         <div>Agent Donor</div>
+      </div>
+    );
+  }
+
+  function ClientView() {
+    return (
+      <div>
+        <div>Welcome Client</div>
       </div>
     );
   }
@@ -279,8 +279,10 @@ export default function Home(): React.ReactElement {
         <title>HawalaCoin</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <main className="max-w-screen-sm mx-auto py-10 md:py-20 px-4">
-          <h1 className="font-bold text-gray-700">Hawala Coin</h1>
+      <div className="fixed w-full bg-indigo-900 h-12 pt-2 text-white text-center font-bold text-lg tracking-wide">
+        Hawala Coin
+      </div>
+      <main className="max-w-screen-sm mx-auto py-10 px-4">
           {address ? 
             (<PrimaryButton onClick={() => 
               destroy().catch((e) => toast.error((e as Error).message))
@@ -292,17 +294,17 @@ export default function Home(): React.ReactElement {
           }
           {address && (
             <div>
-              <div className="text-gray-600 border-2">
+              <div className="msg-bubble">
                 <div>Wallet Information</div>
                 <div>Network: {network.name}</div>
                 <div>Address: {truncateAddress(address)}</div>
                 <div>Celo: {Web3.utils.fromWei(summary.celo.toFixed())}</div>
                 {balances.map((balance, tokenId) =>
-                  <div key={tokenId}>Token{tokenId}: {balance}</div>
+                  <div key={tokenId}>Token{tokenId} Balance: {balance}</div>
                 )}
               </div>
               <div>
-                <RoleView />
+                {RoleView()}
               </div>
             </div>
           )}
