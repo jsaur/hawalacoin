@@ -17,6 +17,9 @@ const defaultGasPrice = 500000000000;
 const ERC20_DECIMALS = 18;
 
 function truncateAddress(address: string) {
+  if (!address) {
+    return '';
+  }
   return `${address.slice(0, 8)}...${address.slice(36)}`;
 }
 
@@ -42,7 +45,7 @@ export default function Home(): React.ReactElement {
 
   // TODO Move these to configs
   // Alfajores
-  const hawalaAddress = '0x1c1835707FB45Fe1996b8E1c74873764eb99b743';
+  const hawalaAddress = '0xfc209B1c15330E2307E065C6e0D1eDFF422ba494';
   const hawalaAbi: any = hawalaJson.abi; // hack to fix abi types
   const hawalaContract = new kit.web3.eth.Contract(hawalaAbi, hawalaAddress);
 
@@ -86,8 +89,10 @@ export default function Home(): React.ReactElement {
     setTokenId(tokenId);
     const missionId = await hawalaContract.methods.currentMissionId().call();
     setMissionId(missionId);
-    const balances = await hawalaContract.methods.balanceOfBatch([address], [0]).call();
+    const balances = await hawalaContract.methods.balanceOfBatch([address], [tokenId]).call();
     setBalances(balances);
+    console.log(`token ${tokenId}`);
+    console.log(`mission ${missionId}`);
   }
 
   /**
@@ -170,6 +175,7 @@ export default function Home(): React.ReactElement {
    * 
    */
   async function createMission(targetAddress: string, tokenId: number, amount: number): Promise<void> {
+    console.log(`${kit.defaultAccount} ${targetAddress} ${tokenId} ${amount}`);
     const txObject = await hawalaContract.methods.createMission(kit.defaultAccount, targetAddress, tokenId, amount);
     let tx = await kit.sendTransactionObject(txObject, { from: kit.defaultAccount, gasPrice: defaultGasPrice });
     let receipt = await tx.waitReceipt();
@@ -177,10 +183,20 @@ export default function Home(): React.ReactElement {
     fetchSummary();
   }
 
+  const [mission, setMission] = useState({});
+
   /** 
    * 
    */
-  async function completeMission(targetAddress: string, missionId: number): Promise<void> {
+  async function fetchMission(missionId: number): Promise<void> {
+    const mission = await hawalaContract.methods.missions(missionId).call();
+    setMission(mission);
+  }
+
+  /** 
+   * 
+   */
+  async function completeMission(missionId: number): Promise<void> {
     const txObject = await hawalaContract.methods.completeMission(kit.defaultAccount, missionId);
     let tx = await kit.sendTransactionObject(txObject, { from: kit.defaultAccount, gasPrice: defaultGasPrice });
     let receipt = await tx.waitReceipt();
@@ -258,7 +274,7 @@ export default function Home(): React.ReactElement {
   }
 
   const [agentAddress, setAgentAddress] = useState('');
-  const [missionAmount, setMissionAmountAddress] = useState(100);
+  const [missionAmount, setMissionAmount] = useState(100);
 
   function CsoView() {
     return (
@@ -274,7 +290,7 @@ export default function Home(): React.ReactElement {
         </div>
         <div>
           <input className="msg-input float-right" type="text" placeholder="Mission Amount" value={missionAmount} onChange={(event: any) => {
-            setMissionAmountAddress(event.target.value);
+            setMissionAmoun(event.target.value);
           }}></input>
         </div>
         <ContractButton className="float-right" disabled={transacting} onClick={() => wrapContractCall(() => createMission(agentAddress, tokenId, missionAmount))} children="Create Mission" />
@@ -286,9 +302,32 @@ export default function Home(): React.ReactElement {
     return (
       <div className="flex flex-col">
         <div className="msg-bubble">Welcome Agent</div>
+        <ContractButton className="float-right" disabled={transacting} onClick={() => wrapContractCall(() => fetchMission(missionId))} children="Fetch Mission" />
+        <div className="msg-bubble">
+          <div>Mission details: </div>
+          <div>CSO Addr: {truncateAddress(mission.csoAddr)}</div>
+          <div>Amount: {mission.amount}</div>
+        </div>
+        <div className="msg-bubble">Complete the mission by delivering cash to the CSO</div>
+        <div className="msg-bubble">You will be rewarded in tokens</div>
+        <ContractButton className="float-right w-48" disabled={transacting} onClick={() => wrapContractCall(() => completeMission(missionId))} children="Complete Mission" />
+        <div className="msg-bubble">Transfer tokens to Client to cash out</div>
+        <div>
+          <input className="msg-input w-96" type="text" placeholder="Client Address" value={clientAddress} onChange={(event: any) => {
+            setClientAddress(event.target.value);
+          }}></input>
+        </div>
+        <div>
+          <input className="msg-input" type="text" placeholder="Amount in cents" value={transferAmount} onChange={(event: any) => {
+            setTransferAmount(event.target.value);
+          }}></input>
+        </div>
+        <ContractButton className="float-right w-48" disabled={transacting} onClick={() => wrapContractCall(() => transfer(clientAddress, tokenId, transferAmount))} children="Transfer to Client" />
       </div>
     );
   }
+
+  const [burnAmount, setBurnAmount] = useState(100);
 
   function ClientView() {
     return (
@@ -300,6 +339,15 @@ export default function Home(): React.ReactElement {
           }}></input>
         </div>
         <ContractButton className="float-right" disabled={transacting} onClick={() => wrapContractCall(() => addRole(agentAddress, 4))} children="Add Agent" />
+        <div className="msg-bubble">Wait for Agent to cash out</div>
+        <div className="msg-bubble">One Agent has cashed out, burn the underlying tokens</div>
+        <div className="msg-bubble">This completes the cycle</div>
+        <div>
+          <input className="msg-input" type="text" placeholder="Amount in cents" value={burnAmount} onChange={(event: any) => {
+            setBurnAmount(event.target.value);
+          }}></input>
+        </div>
+        <ContractButton className="float-right w-48" disabled={transacting} onClick={() => wrapContractCall(() => burn(tokenId, burnAmount))} children="Burn tokens" />
       </div>
     );
   }
@@ -346,7 +394,7 @@ export default function Home(): React.ReactElement {
                 <div>Network: {network.name}</div>
                 <div>Address: {truncateAddress(address)}</div>
                 <div>Celo: {Web3.utils.fromWei(summary.celo.toFixed())}</div>
-                {balances.map((balance, tokenId) =>
+                {balances.map((balance) =>
                   <div key={tokenId}>Token{tokenId} Balance: {balance}</div>
                 )}
               </div>

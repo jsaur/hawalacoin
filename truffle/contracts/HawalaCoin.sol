@@ -97,6 +97,7 @@ contract HawalaCoin is ERC1155, ERC1155Receiver, ERC1155Holder, Ownable  {
            amount: amount,
            completed: false
         });
+        _missionCounter.increment();
         this.safeTransferFrom(csoAddr, address(this), tokenId, amount, "");
     }
     

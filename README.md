@@ -4,6 +4,11 @@ A DApp for getting money into hard places
 
 ## Setup
 
+This setup requires node 12 and yarn
+```
+nvm use 12
+```
+
 To install dependencies run
 ```
 yarn
