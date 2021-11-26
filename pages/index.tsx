@@ -13,7 +13,7 @@ const defaultSummary = {
   wallet: '',
   celo: new BigNumber(0),
 };
-const defaultGasPrice = 500000000000;
+const defaultGasPrice = 1000000000000;
 const ERC20_DECIMALS = 18;
 
 function truncateAddress(address: string) {
@@ -85,9 +85,12 @@ export default function Home(): React.ReactElement {
       setBalances([]);
       return;
     }
-    const tokenId = await hawalaContract.methods.currentTokenId().call();
+    // We want to set the most recent token and mission, which is the current - 1
+    let tokenId = await hawalaContract.methods.currentTokenId().call();
+    tokenId = tokenId === 0 ? 0 : tokenId - 1;
     setTokenId(tokenId);
-    const missionId = await hawalaContract.methods.currentMissionId().call();
+    let missionId = await hawalaContract.methods.currentMissionId().call();
+    missionId = missionId === 0 ? 0 : missionId - 1;
     setMissionId(missionId);
     const balances = await hawalaContract.methods.balanceOfBatch([address], [tokenId]).call();
     setBalances(balances);
@@ -232,9 +235,9 @@ export default function Home(): React.ReactElement {
   }
 
   const [clientAddress, setClientAddress] = useState('');
-  const [mintAmount, setMintAmount] = useState(100);
+  const [mintAmount, setMintAmount] = useState(null);
   const [csoAddress, setCsoAddress] = useState('');
-  const [transferAmount, setTransferAmount] = useState(100);
+  const [transferAmount, setTransferAmount] = useState(null);
 
   function DonorView() {
     return (
@@ -250,7 +253,7 @@ export default function Home(): React.ReactElement {
         <div className="msg-bubble">Transfer USD to the Client</div>
         <div className="msg-bubble">Once transferred you can mint representative tokens</div>
         <div>
-          <input className="msg-input" type="text" placeholder="Amount in cents" value={mintAmount} onChange={(event: any) => {
+          <input className="msg-input" type="text" placeholder="Mint Amount" value={mintAmount} onChange={(event: any) => {
             setMintAmount(event.target.value);
           }}></input>
         </div>
@@ -264,7 +267,7 @@ export default function Home(): React.ReactElement {
         <ContractButton className="float-right" disabled={transacting} onClick={() => wrapContractCall(() => addRole(csoAddress, 3))} children="Add CSO" />
         <div className="msg-bubble">Transfer tokens to CSO</div>
         <div>
-          <input className="msg-input" type="text" placeholder="Amount in cents" value={transferAmount} onChange={(event: any) => {
+          <input className="msg-input" type="text" placeholder="Transfer Amount" value={transferAmount} onChange={(event: any) => {
             setTransferAmount(event.target.value);
           }}></input>
         </div>
@@ -274,7 +277,7 @@ export default function Home(): React.ReactElement {
   }
 
   const [agentAddress, setAgentAddress] = useState('');
-  const [missionAmount, setMissionAmount] = useState(100);
+  const [missionAmount, setMissionAmount] = useState(null);
 
   function CsoView() {
     return (
@@ -290,7 +293,7 @@ export default function Home(): React.ReactElement {
         </div>
         <div>
           <input className="msg-input float-right" type="text" placeholder="Mission Amount" value={missionAmount} onChange={(event: any) => {
-            setMissionAmoun(event.target.value);
+            setMissionAmount(event.target.value);
           }}></input>
         </div>
         <ContractButton className="float-right" disabled={transacting} onClick={() => wrapContractCall(() => createMission(agentAddress, tokenId, missionAmount))} children="Create Mission" />
@@ -318,7 +321,7 @@ export default function Home(): React.ReactElement {
           }}></input>
         </div>
         <div>
-          <input className="msg-input" type="text" placeholder="Amount in cents" value={transferAmount} onChange={(event: any) => {
+          <input className="msg-input py-1" type="text" placeholder="Transfer Amount" value={transferAmount} onChange={(event: any) => {
             setTransferAmount(event.target.value);
           }}></input>
         </div>
@@ -327,7 +330,7 @@ export default function Home(): React.ReactElement {
     );
   }
 
-  const [burnAmount, setBurnAmount] = useState(100);
+  const [burnAmount, setBurnAmount] = useState(null);
 
   function ClientView() {
     return (
@@ -343,7 +346,7 @@ export default function Home(): React.ReactElement {
         <div className="msg-bubble">One Agent has cashed out, burn the underlying tokens</div>
         <div className="msg-bubble">This completes the cycle</div>
         <div>
-          <input className="msg-input" type="text" placeholder="Amount in cents" value={burnAmount} onChange={(event: any) => {
+          <input className="msg-input" type="text" placeholder="Burn Amount" value={burnAmount} onChange={(event: any) => {
             setBurnAmount(event.target.value);
           }}></input>
         </div>
